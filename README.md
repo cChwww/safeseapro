@@ -53,7 +53,6 @@
 ---
 
 ## 📂 目录结构
-
 ```text
 📦 project_root
  ┣ 📂 inputs/               # 原始输入数据（由于数据量大，仅展示部分样例）
@@ -73,3 +72,56 @@
  ┃ ┣ 📜 baseline.yaml       # 基线模型训练配置文件
  ┃ ┗ 📜 augement.yaml       # 增强数据集训练配置文件
  ┗ 📂 reademe_image/        # 存放本文档 (README) 所需的各种展示图片
+```
+## 🛠️ 环境与依赖
+运行本项目的生成代码需要较高的显存支持（建议显存 ≥ 16GB 的 NVIDIA GPU，如 RTX 3090）。
+
+**1. 基础依赖：**
+- Python 3.10+
+- PyTorch 2.0+ (支持 CUDA)
+- diffusers, transformers, accelerate (用于加载 Stable Diffusion 与 ControlNet)
+- opencv-python, numpy, Pillow
+
+**2. 环境安装示例：**
+```bash
+conda create -n safesea python=3.10
+conda activate safesea
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install diffusers transformers accelerate opencv-python matplotlib
+pip install -r yolov5/requirements.txt
+```
+## 🚀 快速开始
+
+### 步骤 1：批量生成增强图像
+数据生成逻辑由 `scripts/image_generation.py` 统筹。该脚本会遍历 `inputs/images` 中的原始图片，并自动匹配 `inputs/masks` 中的掩码，调用底层的 `text_editing_stable_diffusion_1.py` 脚本执行**“形态学缓冲 + Canny 特征提取 + SD 重绘”**的流水线。
+
+```bash
+# 启动批量生成（生成的图像将保存在 outputs/images/ 下）
+python scripts/image_generation.py
+```
+
+### 步骤 2：下游目标检测训练 (YOLOv5)
+我们提供了两套训练配置文件，分别用于训练 Baseline 模型 和 加入了生成数据的 Augmented 模型。
+
+```bash
+cd yolov5
+
+# 1. 训练基线模型（纯真实数据）
+python train.py --img 640 --batch 16 --epochs 30 --data baseline.yaml --weights yolov5s.pt --project runs/train --name safesea_baseline_1400
+
+# 2. 训练增强模型（含生成的复杂海况数据）
+python train.py --img 640 --batch 16 --epochs 30 --data augement.yaml --weights yolov5s.pt --project runs/train --name safesea_baseline_14001
+```
+
+💡 从 `runs/train/` 中的结果可以对比得出：引入生成数据后，YOLOv5 对复杂海况的小目标抗干扰能力（泛化性）得到了有效提升。
+
+### 步骤 3：数据与性能对比
+运行对比脚本，可用于计算生成图像的 T-PSNR、L-SSIM 等结构保持指标，或对比 YOLOv5 的训练结果：
+
+```bash
+python scripts/compare_1.py
+```
+## ✉️ 联系与致谢
+作者：崔浩炜  
+单位：山西大学 计算机与信息技术学院  
+邮箱：cuihaow2004@163.com
